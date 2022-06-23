@@ -1,0 +1,6 @@
+train: ./trainDatasets/train/images
+val: ./trainDatasets/valid/images
+test: ./trainDatasets/test/images
+
+nc: 2
+names: ['bss', 'ls']
