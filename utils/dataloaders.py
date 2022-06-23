@@ -83,7 +83,7 @@ def exif_transpose(image):
             5: Image.TRANSPOSE,
             6: Image.ROTATE_270,
             7: Image.TRANSVERSE,
-            8: Image.ROTATE_90,}.get(orientation)
+            8: Image.ROTATE_90, }.get(orientation)
         if method is not None:
             image = image.transpose(method)
             del exif[0x0112]
@@ -663,6 +663,8 @@ class LoadImagesAndLabels(Dataset):
             else:  # read image
                 im = cv2.imread(f)  # BGR
                 assert im is not None, f'Image Not Found {f}'
+            # ---------------------------- 2022-06-23 添加gamma变换数据增强-----------------------------------
+            im = gamma_trans(im, random.uniform(0.5, 2.0))
             h0, w0 = im.shape[:2]  # orig hw
             r = self.img_size / max(h0, w0)  # ratio
             if r != 1:  # if sizes are not equal
@@ -1092,3 +1094,14 @@ def dataset_stats(path='coco128.yaml', autodownload=False, verbose=False, profil
     if verbose:
         print(json.dumps(stats, indent=2, sort_keys=False))
     return stats
+
+
+# ---------------------------- 2022-06-23 添加gamma变换数据增强-----------------------------------
+def gamma_trans(img, gamma):
+    """
+    首先归一化到0-1范围，然后gamma作为指数值求出新的像素值再还原
+    """
+    gamma_table = [np.power(x / 255.0, gamma) * 255.0 for x in range(256)]
+    gamma_table = np.round(np.array(gamma_table)).astype(np.uint8)
+
+    return cv2.LUT(img, gamma_table)  # 作为一个查表的映射
