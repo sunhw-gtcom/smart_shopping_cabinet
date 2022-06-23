@@ -83,7 +83,7 @@ def exif_transpose(image):
             5: Image.TRANSPOSE,
             6: Image.ROTATE_270,
             7: Image.TRANSVERSE,
-            8: Image.ROTATE_90, }.get(orientation)
+            8: Image.ROTATE_90,}.get(orientation)
         if method is not None:
             image = image.transpose(method)
             del exif[0x0112]
@@ -324,15 +324,21 @@ class LoadStreams:
             if s == 0:
                 assert not is_colab(), '--source 0 webcam unsupported on Colab. Rerun command in a local environment.'
                 assert not is_kaggle(), '--source 0 webcam unsupported on Kaggle. Rerun command in a local environment.'
+            # 使用opencv读取帧
             cap = cv2.VideoCapture(s)
             assert cap.isOpened(), f'{st}Failed to open {s}'
+            # 获取视频宽度
             w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            # 获取视频高度
             h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            # # 获取视频帧率
             fps = cap.get(cv2.CAP_PROP_FPS)  # warning: may return 0 or nan
+            # 获取视频总帧数 int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
             self.frames[i] = max(int(cap.get(cv2.CAP_PROP_FRAME_COUNT)), 0) or float('inf')  # infinite stream fallback
             self.fps[i] = max((fps if math.isfinite(fps) else 0) % 100, 0) or 30  # 30 FPS fallback
-
+            # 跳帧并解码视频
             _, self.imgs[i] = cap.read()  # guarantee first frame
+            # 使用多线程读取视频帧
             self.threads[i] = Thread(target=self.update, args=([i, cap, s]), daemon=True)
             LOGGER.info(f"{st} Success ({self.frames[i]} frames {w}x{h} at {self.fps[i]:.2f} FPS)")
             self.threads[i].start()
@@ -347,11 +353,14 @@ class LoadStreams:
     def update(self, i, cap, stream):
         # Read stream `i` frames in daemon thread
         n, f, read = 0, self.frames[i], 1  # frame number, frame array, inference every 'read' frame
+        # while cap.isOpened() 只要cap没有关闭，就是一直读取视频的帧
         while cap.isOpened() and n < f:
             n += 1
             # _, self.imgs[index] = cap.read()
+            # 从视频文件或捕获设备抓取下一帧。
             cap.grab()
             if n % read == 0:
+                # 解码并安返回抓取的视频帧
                 success, im = cap.retrieve()
                 if success:
                     self.imgs[i] = im
@@ -372,6 +381,7 @@ class LoadStreams:
             raise StopIteration
 
         # Letterbox
+        # 复制图片列表
         img0 = self.imgs.copy()
         img = [letterbox(x, self.img_size, stride=self.stride, auto=self.rect and self.auto)[0] for x in img0]
 
@@ -663,7 +673,7 @@ class LoadImagesAndLabels(Dataset):
             else:  # read image
                 im = cv2.imread(f)  # BGR
                 assert im is not None, f'Image Not Found {f}'
-            # ---------------------------- 2022-06-23 添加gamma变换数据增强-----------------------------------
+# ---------------------------- 2022-06-23 添加gamma变换数据增强-----------------------------------
             im = gamma_trans(im, random.uniform(0.5, 2.0))
             h0, w0 = im.shape[:2]  # orig hw
             r = self.img_size / max(h0, w0)  # ratio
