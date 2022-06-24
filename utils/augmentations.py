@@ -130,24 +130,41 @@ def random_perspective(im,
                        shear=10,
                        perspective=0.0,
                        border=(0, 0)):
+    """这个函数会用于load_mosaic中用在mosaic操作之后
+        随机透视变换  对mosaic整合后的图片进行随机旋转、缩放、平移、裁剪，透视变换，并resize为输入大小img_size
+        :params img: mosaic整合后的图片img4 [2*img_size, 2*img_size]
+        如果mosaic后的图片没有一个多边形标签就使用targets, segments为空  如果有一个多边形标签就使用segments, targets不为空
+        :params targets: mosaic整合后图片的所有正常label标签labels4(不正常的会通过segments2boxes将多边形标签转化为正常标签) [N, cls+xyxy]
+        :params segments: mosaic整合后图片的所有不正常label信息(包含segments多边形也包含正常gt)  [m, x1y1....]
+        :params degrees: 旋转和缩放矩阵参数
+        :params translate: 平移矩阵参数
+        :params scale: 缩放矩阵参数
+        :params shear: 剪切矩阵参数
+        :params perspective: 透视变换参数
+        :params border: 用于确定最后输出的图片大小 一般等于[-img_size, -img_size] 那么最后输出的图片大小为 [img_size, img_size]
+        :return img: 通过透视变换/仿射变换后的img [img_size, img_size]
+        :return targets: 通过透视变换/仿射变换后的img对应的标签 [n, cls+x1y1x2y2]  (通过筛选后的)
+        """
     # torchvision.transforms.RandomAffine(degrees=(-10, 10), translate=(0.1, 0.1), scale=(0.9, 1.1), shear=(-10, 10))
     # targets = [cls, xyxy]
 
-    height = im.shape[0] + border[0] * 2  # shape(h,w,c)
-    width = im.shape[1] + border[1] * 2
+    height = im.shape[0] + border[0] * 2  # shape(h,w,c)   # 最终输出图像的H
+    width = im.shape[1] + border[1] * 2 # 最终输出图像的W
 
-    # Center
+    # ============================ 开始变换 =============================
+    # 需要注意的是，其实opencv是实现了仿射变换的, 不过我们要先生成仿射变换矩阵M
+    # Center 设置中心平移矩阵
     C = np.eye(3)
     C[0, 2] = -im.shape[1] / 2  # x translation (pixels)
     C[1, 2] = -im.shape[0] / 2  # y translation (pixels)
 
-    # Perspective
+    # Perspective  设置透视变换矩阵
     P = np.eye(3)
     P[2, 0] = random.uniform(-perspective, perspective)  # x perspective (about y)
     P[2, 1] = random.uniform(-perspective, perspective)  # y perspective (about x)
 
-    # Rotation and Scale
-    R = np.eye(3)
+    # Rotation and Scale    设置旋转和缩放矩阵
+    R = np.eye(3)   # 初始化R = [[1,0,0], [0,1,0], [0,0,1]]    (3, 3)
     a = random.uniform(-degrees, degrees)
     # a += random.choice([-180, -90, 0, 90])  # add 90deg rotations to small rotations
     s = random.uniform(1 - scale, 1 + scale)
@@ -270,6 +287,17 @@ def cutout(im, labels, p=0.5):
 
 def mixup(im, labels, im2, labels2):
     # Applies MixUp augmentation https://arxiv.org/pdf/1710.09412.pdf
+    """用在LoadImagesAndLabels模块中的__getitem__函数进行mixup增强
+        mixup数据增强, 按比例融合两张图片  Applies MixUp augmentation
+        论文: https://arxiv.org/pdf/1710.09412.pdf
+        :params im:图片1  numpy (640, 640, 3)
+        :params labels:[N, 5]=[N, cls+x1y1x2y2]
+        :params im2:图片2  (640, 640, 3)
+        :params labels2:[M, 5]=[M, cls+x1y1x2y2]
+        :return img: 两张图片mixup增强后的图片 (640, 640, 3)
+        :return labels: 两张图片mixup增强后的label标签 [M+N, cls+x1y1x2y2]
+        """
+
     r = np.random.beta(32.0, 32.0)  # mixup ratio, alpha=beta=32.0
     im = (im * r + im2 * (1 - r)).astype(np.uint8)
     labels = np.concatenate((labels, labels2), 0)
