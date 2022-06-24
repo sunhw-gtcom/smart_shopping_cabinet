@@ -94,27 +94,6 @@ def exif_transpose(image):
     return image
 
 
-"""在train.py中被调用，用于生成Trainloader, dataset，testloader
-    自定义dataloader函数: 调用LoadImagesAndLabels获取数据集(包括数据增强) + 调用分布式采样器DistributedSampler +
-                        自定义InfiniteDataLoader 进行永久持续的采样数据
-    :param path: 图片数据加载路径 train/test  如: ../datasets/VOC/images/train2007
-    :param imgsz: train/test图片尺寸（数据增强后大小） 640
-    :param batch_size: batch size 大小 8/16/32
-    :param stride: 模型最大stride=32   [32 16 8]
-    :param single_cls: 数据集是否是单类别 默认False
-    :param hyp: 超参列表dict 网络训练时的一些超参数，包括学习率等，这里主要用到里面一些关于数据增强(旋转、平移等)的系数
-    :param augment: 是否要进行数据增强  True
-    :param cache: 是否cache_images False
-    :param pad: 设置矩形训练的shape时进行的填充 默认0.0
-    :param rect: 是否开启矩形train/test  默认训练集关闭 验证集开启
-    :param rank:  多卡训练时的进程编号 rank为进程编号  -1且gpu=1时不进行分布式  -1且多块gpu使用DataParallel模式  默认-1
-    :param workers: dataloader的numworks 加载数据时的cpu进程数
-    :param image_weights: 训练时是否根据图片样本真实框分布权重来选择图片  默认False
-    :param quad: dataloader取数据时, 是否使用collate_fn4代替collate_fn  默认False
-    :param prefix: 显示信息   一个标志，多为train/val，处理标签时保存cache文件会用到
-"""
-
-
 def create_dataloader(path,
                       imgsz,
                       batch_size,
@@ -131,6 +110,25 @@ def create_dataloader(path,
                       quad=False,
                       prefix='',
                       shuffle=False):
+    """在train.py中被调用，用于生成Trainloader, dataset，testloader
+        自定义dataloader函数: 调用LoadImagesAndLabels获取数据集(包括数据增强) + 调用分布式采样器DistributedSampler +
+                            自定义InfiniteDataLoader 进行永久持续的采样数据
+        :param path: 图片数据加载路径 train/test  如: ../datasets/VOC/images/train2007
+        :param imgsz: train/test图片尺寸（数据增强后大小） 640
+        :param batch_size: batch size 大小 8/16/32
+        :param stride: 模型最大stride=32   [32 16 8]
+        :param single_cls: 数据集是否是单类别 默认False
+        :param hyp: 超参列表dict 网络训练时的一些超参数，包括学习率等，这里主要用到里面一些关于数据增强(旋转、平移等)的系数
+        :param augment: 是否要进行数据增强  True
+        :param cache: 是否cache_images False
+        :param pad: 设置矩形训练的shape时进行的填充 默认0.0
+        :param rect: 是否开启矩形train/test  默认训练集关闭 验证集开启
+        :param rank:  多卡训练时的进程编号 rank为进程编号  -1且gpu=1时不进行分布式  -1且多块gpu使用DataParallel模式  默认-1
+        :param workers: dataloader的numworks 加载数据时的cpu进程数
+        :param image_weights: 训练时是否根据图片样本真实框分布权重来选择图片  默认False
+        :param quad: dataloader取数据时, 是否使用collate_fn4代替collate_fn  默认False
+        :param prefix: 显示信息   一个标志，多为train/val，处理标签时保存cache文件会用到
+    """
     if rect and shuffle:
         LOGGER.warning('WARNING: --rect is incompatible with DataLoader shuffle, setting shuffle=False')
         shuffle = False
@@ -773,13 +771,13 @@ class LoadImagesAndLabels(Dataset):
 
             # Flip up-down  随机上下翻转
             if random.random() < hyp['flipud']:
-                img = np.flipud(img)    # np.flipud 将数组在上下方向翻转。
+                img = np.flipud(img)  # np.flipud 将数组在上下方向翻转。
                 if nl:
-                    labels[:, 2] = 1 - labels[:, 2] # 1 - y_center  label也要映射
+                    labels[:, 2] = 1 - labels[:, 2]  # 1 - y_center  label也要映射
 
             # Flip left-right   随机左右翻转
             if random.random() < hyp['fliplr']:
-                img = np.fliplr(img)    # np.fliplr 将数组在左右方向翻转
+                img = np.fliplr(img)  # np.fliplr 将数组在左右方向翻转
                 if nl:
                     labels[:, 1] = 1 - labels[:, 1]  # 1 - x_center  label也要映射
 
@@ -794,7 +792,7 @@ class LoadImagesAndLabels(Dataset):
 
         # Convert
         img = img.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
-        img = np.ascontiguousarray(img) # img变成内存连续的数据  加快运算
+        img = np.ascontiguousarray(img)  # img变成内存连续的数据  加快运算
 
         return torch.from_numpy(img), labels_out, self.im_files[index], shapes
 
@@ -836,7 +834,7 @@ class LoadImagesAndLabels(Dataset):
         # labels4: 用于存放拼接图像（4张图拼成一张）的label信息(不包含segments多边形)
         # segments4: 用于存放拼接图像（4张图拼成一张）的label信息(包含segments多边形)
         labels4, segments4 = [], []
-        s = self.img_size   # 一般的图片大小
+        s = self.img_size  # 一般的图片大小
         # 随机初始化拼接图像的中心点坐标  [0, s*2]之间随机取2个数作为拼接图像的中心坐标
         yc, xc = (int(random.uniform(-x, 2 * s + x)) for x in self.mosaic_border)  # mosaic center x, y
         indices = [index] + random.choices(self.indices, k=3)  # 3 additional image indices
@@ -894,17 +892,26 @@ class LoadImagesAndLabels(Dataset):
 
     def load_mosaic9(self, index):
         # YOLOv5 9-mosaic loader. Loads 1 image + 8 random images into a 9-image mosaic
+        """用在LoadImagesAndLabels模块的__getitem__函数 进行mosaic数据增强
+            将四张图片拼接在一张马赛克图像中  loads images in a 4-mosaic
+            :param index: 需要获取的图像索引
+            :return: img4: mosaic和随机透视变换后的一张图片  numpy(640, 640, 3)
+                     labels4: img4对应的target  [M, cls+x1y1x2y2]
+        """
+        # labels4: 用于存放拼接图像（4张图拼成一张）的label信息(不包含segments多边形)
+        # segments4: 用于存放拼接图像（4张图拼成一张）的label信息(包含segments多边形)
         labels9, segments9 = [], []
-        s = self.img_size
+        s = self.img_size   # 一般的图片大小
         indices = [index] + random.choices(self.indices, k=8)  # 8 additional image indices
         random.shuffle(indices)
         hp, wp = -1, -1  # height, width previous
+        # 遍历四张图像进行拼接 4张不同大小的图像 => 1张[1472, 1472, 3]的图像
         for i, index in enumerate(indices):
-            # Load image
+            # Load image 每次拿一张图片 并将这张图片resize到self.size(h,w)
             img, _, (h, w) = self.load_image(index)
-
             # place img in img9
             if i == 0:  # center
+                # 创建马赛克图像 [1472, 1472, 3]=[h, w, c]
                 img9 = np.full((s * 3, s * 3, img.shape[2]), 114, dtype=np.uint8)  # base image with 4 tiles
                 h0, w0 = h, w
                 c = s, s, s + w, s + h  # xmin, ymin, xmax, ymax (base) coordinates
@@ -928,13 +935,14 @@ class LoadImagesAndLabels(Dataset):
             padx, pady = c[:2]
             x1, y1, x2, y2 = (max(x, 0) for x in c)  # allocate coords
 
-            # Labels
+            # labels: 获取对应拼接图像的所有正常label信息(如果有segments多边形会被转化为矩形label)
+            # segments: 获取对应拼接图像的所有不正常label信息(包含segments多边形也包含正常gt)
             labels, segments = self.labels[index].copy(), self.segments[index].copy()
             if labels.size:
                 labels[:, 1:] = xywhn2xyxy(labels[:, 1:], w, h, padx, pady)  # normalized xywh to pixel xyxy format
                 segments = [xyn2xy(x, w, h, padx, pady) for x in segments]
-            labels9.append(labels)
-            segments9.extend(segments)
+            labels9.append(labels)  # 更新labels9
+            segments9.extend(segments)  # 更新segments9
 
             # Image
             img9[y1:y2, x1:x2] = img[y1 - pady:, x1 - padx:]  # img9[ymin:ymax, xmin:xmax]
@@ -951,11 +959,14 @@ class LoadImagesAndLabels(Dataset):
         c = np.array([xc, yc])  # centers
         segments9 = [x - c for x in segments9]
 
+        # 防止越界  label[:, 1:]中的所有元素的值（位置信息）必须在[0, 2*s]之间,小于0就令其等于0,大于2*s就等于2*s   out: 返回
         for x in (labels9[:, 1:], *segments9):
             np.clip(x, 0, 2 * s, out=x)  # clip when using random_perspective()
         # img9, labels9 = replicate(img9, labels9)  # replicate
 
         # Augment
+        # random_perspective Augment  随机透视变换 [1280, 1280, 3] => [640, 640, 3]
+        # 对mosaic整合后的图片进行随机旋转、平移、缩放、裁剪，透视变换，并resize为输入大小img_size
         img9, labels9 = random_perspective(img9,
                                            labels9,
                                            segments9,
@@ -1012,7 +1023,7 @@ class LoadImagesAndLabels(Dataset):
         # path: 整个batch所有图片的路径
         # shapes: (h0, w0), ((h / h0, w / w0), pad)    for COCO mAP rescaling
         img, label, path, shapes = zip(*batch)  # transposed
-        n = len(shapes) // 4    # collate_fn4处理后这个batch中图片的个数
+        n = len(shapes) // 4  # collate_fn4处理后这个batch中图片的个数
         im4, label4, path4, shapes4 = [], [], path[:n], shapes[:n]  # 初始化
 
         ho = torch.tensor([[0.0, 0, 0, 1, 0, 0]])
