@@ -95,11 +95,14 @@ def run(
 
     # Dataloader
     if webcam:
+        # 检测摄像头输入，运行此处
         view_img = check_imshow()
         cudnn.benchmark = True  # set True to speed up constant image size inference
         dataset = LoadStreams(source, img_size=imgsz, stride=stride, auto=pt)
         bs = len(dataset)  # batch_size
+        print('webcam')
     else:
+        # 检测视频、图像，运行此处
         dataset = LoadImages(source, img_size=imgsz, stride=stride, auto=pt)
         bs = 1  # batch_size
     vid_path, vid_writer = [None] * bs, [None] * bs
